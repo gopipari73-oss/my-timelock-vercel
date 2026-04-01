@@ -1,15 +1,11 @@
 {
   "name": "my-timelock-vercel",
   "version": "3.0.0",
-  "description": "Backup Timelock — apna password Vercel KV mein bhejo",
+  "description": "Backup Timelock — Vercel version",
   "engines": {
     "node": ">=18.0.0"
   },
   "dependencies": {
     "@vercel/kv": "^1.0.1"
-  },
-  "scripts": {
-    "dev": "vercel dev",
-    "build": "next build"
   }
 }
