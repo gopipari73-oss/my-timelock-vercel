@@ -1,0 +1,959 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TimeLock — Apna Secret Lock Karo</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;900&family=Crimson+Pro:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0a0a0f;
+      --surface: #111118;
+      --border: #1e1e2e;
+      --gold: #c8a96e;
+      --gold-light: #e8c98e;
+      --gold-dim: #8a6f42;
+      --text: #d4cfc8;
+      --text-dim: #7a7570;
+      --red: #c04040;
+      --green: #4a8c5c;
+      --accent: #1a1a28;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Crimson Pro', Georgia, serif;
+      font-size: 17px;
+      line-height: 1.6;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        radial-gradient(ellipse 80% 50% at 50% 0%, #1a1520 0%, transparent 60%),
+        radial-gradient(ellipse 40% 30% at 20% 80%, #0d1520 0%, transparent 50%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .container {
+      position: relative;
+      z-index: 1;
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 40px 24px 80px;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 56px;
+    }
+
+    .lock-icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+      display: block;
+      filter: drop-shadow(0 0 20px rgba(200,169,110,0.3));
+      animation: float 4s ease-in-out infinite;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-8px); }
+    }
+
+    h1 {
+      font-family: 'Cinzel', serif;
+      font-size: clamp(28px, 5vw, 42px);
+      font-weight: 900;
+      color: var(--gold);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      line-height: 1.1;
+    }
+
+    .subtitle {
+      font-family: 'Crimson Pro', serif;
+      font-style: italic;
+      color: var(--text-dim);
+      margin-top: 8px;
+      font-size: 16px;
+    }
+
+    .divider {
+      width: 120px;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--gold-dim), transparent);
+      margin: 20px auto 0;
+    }
+
+    .tabs {
+      display: flex;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-bottom: 32px;
+    }
+
+    .tab {
+      flex: 1;
+      padding: 14px;
+      background: var(--surface);
+      border: none;
+      color: var(--text-dim);
+      font-family: 'Cinzel', serif;
+      font-size: 13px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .tab.active {
+      background: var(--accent);
+      color: var(--gold);
+      border-bottom: 2px solid var(--gold);
+    }
+
+    .tab:hover:not(.active) {
+      color: var(--text);
+      background: #141420;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 32px;
+      position: relative;
+    }
+
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 50%;
+      transform: translateX(-50%);
+      width: 60%;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--gold-dim), transparent);
+    }
+
+    .panel { display: none; }
+    .panel.active { display: block; }
+
+    label {
+      display: block;
+      font-family: 'Cinzel', serif;
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--gold-dim);
+      margin-bottom: 8px;
+      margin-top: 24px;
+    }
+
+    label:first-of-type { margin-top: 0; }
+
+    input, textarea, select {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-family: 'Crimson Pro', serif;
+      font-size: 16px;
+      padding: 12px 16px;
+      border-radius: 4px;
+      outline: none;
+      transition: border-color 0.2s;
+      -webkit-appearance: none;
+    }
+
+    input[type="date"], input[type="time"] {
+      color-scheme: dark;
+    }
+
+    input:focus, textarea:focus, select:focus {
+      border-color: var(--gold-dim);
+    }
+
+    textarea {
+      min-height: 100px;
+      resize: vertical;
+      font-size: 18px;
+      letter-spacing: 0.05em;
+    }
+
+    .password-wrap {
+      position: relative;
+    }
+
+    .password-wrap input {
+      padding-right: 48px;
+      font-family: monospace;
+      letter-spacing: 0.12em;
+      font-size: 16px;
+    }
+
+    .toggle-eye {
+      position: absolute;
+      right: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--text-dim);
+      font-size: 18px;
+      padding: 4px;
+      transition: color 0.2s;
+    }
+
+    .toggle-eye:hover { color: var(--gold); }
+
+    /* ===== DURATION MODE TOGGLE ===== */
+    .mode-toggle {
+      display: flex;
+      gap: 0;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-bottom: 16px;
+    }
+
+    .mode-btn {
+      flex: 1;
+      padding: 9px 8px;
+      background: var(--bg);
+      border: none;
+      color: var(--text-dim);
+      font-family: 'Cinzel', serif;
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all 0.2s;
+      border-right: 1px solid var(--border);
+    }
+
+    .mode-btn:last-child { border-right: none; }
+
+    .mode-btn.active {
+      background: var(--accent);
+      color: var(--gold);
+    }
+
+    .mode-btn:hover:not(.active) {
+      color: var(--text);
+    }
+
+    /* ===== DATE+TIME MODE ===== */
+    .datetime-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    /* ===== DURATION MODE (spinners) ===== */
+    .duration-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+    }
+
+    .dur-block {
+      text-align: center;
+    }
+
+    .dur-block span {
+      display: block;
+      font-family: 'Cinzel', serif;
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      color: var(--gold-dim);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+    }
+
+    .dur-block input[type="number"] {
+      text-align: center;
+      font-family: 'Cinzel', serif;
+      font-size: 22px;
+      padding: 10px 6px;
+      -moz-appearance: textfield;
+      letter-spacing: 0.05em;
+    }
+
+    .dur-block input[type="number"]::-webkit-outer-spin-button,
+    .dur-block input[type="number"]::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+    }
+
+    .dur-arrows {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin-top: 6px;
+    }
+
+    .dur-arrow {
+      width: 100%;
+      padding: 4px;
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-dim);
+      cursor: pointer;
+      border-radius: 3px;
+      font-size: 11px;
+      transition: all 0.15s;
+    }
+
+    .dur-arrow:hover {
+      border-color: var(--gold-dim);
+      color: var(--gold);
+    }
+
+    /* Duration summary */
+    .dur-summary {
+      margin-top: 12px;
+      text-align: center;
+      font-style: italic;
+      color: var(--gold-dim);
+      font-size: 14px;
+      min-height: 20px;
+      transition: all 0.2s;
+    }
+
+    .dur-summary.has-value {
+      color: var(--gold);
+    }
+
+    /* Preset buttons */
+    .preset-btns {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
+
+    .preset {
+      padding: 5px 12px;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      color: var(--text-dim);
+      font-family: 'Crimson Pro', serif;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .preset:hover {
+      border-color: var(--gold-dim);
+      color: var(--gold);
+    }
+
+    .btn {
+      width: 100%;
+      margin-top: 28px;
+      padding: 16px;
+      background: transparent;
+      border: 1px solid var(--gold-dim);
+      color: var(--gold);
+      font-family: 'Cinzel', serif;
+      font-size: 13px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      cursor: pointer;
+      border-radius: 4px;
+      transition: all 0.25s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, var(--gold-dim), transparent);
+      opacity: 0;
+      transition: opacity 0.25s;
+    }
+
+    .btn:hover::before { opacity: 0.15; }
+
+    .btn:hover {
+      border-color: var(--gold);
+      box-shadow: 0 0 20px rgba(200,169,110,0.15);
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .result {
+      margin-top: 24px;
+      padding: 20px;
+      border-radius: 6px;
+      display: none;
+      animation: fadeIn 0.3s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .result.success { display: block; background: rgba(74,140,92,0.1); border: 1px solid rgba(74,140,92,0.3); }
+    .result.error   { display: block; background: rgba(192,64,64,0.1); border: 1px solid rgba(192,64,64,0.3); }
+    .result.locked  { display: block; background: rgba(200,169,110,0.06); border: 1px solid rgba(200,169,110,0.2); }
+
+    .result-title {
+      font-family: 'Cinzel', serif;
+      font-size: 12px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+
+    .result.success .result-title { color: var(--green); }
+    .result.error   .result-title { color: var(--red); }
+    .result.locked  .result-title { color: var(--gold); }
+
+    .id-box {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 10px;
+    }
+
+    .id-text {
+      flex: 1;
+      font-family: monospace;
+      font-size: 13px;
+      color: var(--gold-light);
+      word-break: break-all;
+    }
+
+    .copy-btn {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--text-dim);
+      padding: 6px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      white-space: nowrap;
+      transition: all 0.2s;
+    }
+
+    .copy-btn:hover { border-color: var(--gold-dim); color: var(--gold); }
+
+    /* Countdown (remaining time display) */
+    .countdown {
+      display: flex;
+      gap: 10px;
+      margin-top: 14px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .count-block { text-align: center; }
+
+    .count-num {
+      font-family: 'Cinzel', serif;
+      font-size: 28px;
+      color: var(--gold);
+      line-height: 1;
+    }
+
+    .count-label {
+      font-size: 10px;
+      color: var(--text-dim);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-top: 4px;
+    }
+
+    .count-sep {
+      font-family: 'Cinzel', serif;
+      font-size: 22px;
+      color: var(--gold-dim);
+      align-self: flex-start;
+      padding-top: 2px;
+    }
+
+    .revealed-pass {
+      font-family: monospace;
+      font-size: 20px;
+      color: var(--gold-light);
+      background: var(--bg);
+      padding: 16px;
+      border-radius: 4px;
+      letter-spacing: 0.1em;
+      text-align: center;
+      margin-top: 8px;
+      word-break: break-all;
+    }
+
+    .warning-box {
+      background: rgba(200,169,110,0.06);
+      border: 1px solid rgba(200,169,110,0.2);
+      border-radius: 6px;
+      padding: 16px 20px;
+      margin-bottom: 24px;
+      font-size: 14px;
+      color: var(--text-dim);
+      font-style: italic;
+    }
+
+    .warning-box strong {
+      color: var(--gold);
+      font-style: normal;
+      font-family: 'Cinzel', serif;
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    .loading {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border: 2px solid var(--gold-dim);
+      border-top-color: var(--gold);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      margin-right: 8px;
+      vertical-align: middle;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .hint-text {
+      font-style: italic;
+      color: var(--text-dim);
+      font-size: 14px;
+      margin-top: 6px;
+    }
+
+    .section-label {
+      display: block;
+      font-family: 'Cinzel', serif;
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--gold-dim);
+      margin-bottom: 10px;
+      margin-top: 24px;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <span class="lock-icon">🔐</span>
+    <h1>TimeLock</h1>
+    <p class="subtitle">Apna secret future mein bhejo</p>
+    <div class="divider"></div>
+  </header>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('lock')">🔒 Lock Karo</button>
+    <button class="tab" onclick="switchTab('unlock')">🔓 Unlock Karo</button>
+  </div>
+
+  <div id="panel-lock" class="panel active">
+    <div class="card">
+
+      <div class="warning-box">
+        <strong>⚠️ Yaad Rakhna</strong>
+        Lock karne ke baad jo ID milegi, use safe jagah save karo. Bina ID ke password wapas nahi milega.
+      </div>
+
+      <label>Tera Secret / Password</label>
+      <div class="password-wrap">
+        <input type="password" id="secret-input" placeholder="Woh password jo lock karna hai..." />
+        <button class="toggle-eye" onclick="toggleVisibility('secret-input', this)">👁</button>
+      </div>
+
+      <label>Hint (Optional) — Yaad dilane ke liye</label>
+      <input type="text" id="hint-input" placeholder="Jaise: 'Main woh game ka password hun'" maxlength="100" />
+
+      <span class="section-label">Lock Duration — Kitne time ke liye?</span>
+      <div class="mode-toggle">
+        <button class="mode-btn active" onclick="setMode('duration')" id="mode-duration">⏱ Duration</button>
+        <button class="mode-btn" onclick="setMode('datetime')" id="mode-datetime">📅 Date &amp; Time</button>
+      </div>
+
+      <div id="section-duration">
+        <div class="duration-grid">
+          <div class="dur-block">
+            <span>Din</span>
+            <input type="number" id="dur-days" value="0" min="0" max="365" oninput="updateSummary()" />
+            <div class="dur-arrows">
+              <button class="dur-arrow" onclick="nudge('dur-days',1)">▲</button>
+              <button class="dur-arrow" onclick="nudge('dur-days',-1)">▼</button>
+            </div>
+          </div>
+          <div class="dur-block">
+            <span>Ghante</span>
+            <input type="number" id="dur-hours" value="0" min="0" max="23" oninput="updateSummary()" />
+            <div class="dur-arrows">
+              <button class="dur-arrow" onclick="nudge('dur-hours',1)">▲</button>
+              <button class="dur-arrow" onclick="nudge('dur-hours',-1)">▼</button>
+            </div>
+          </div>
+          <div class="dur-block">
+            <span>Minute</span>
+            <input type="number" id="dur-mins" value="0" min="0" max="59" oninput="updateSummary()" />
+            <div class="dur-arrows">
+              <button class="dur-arrow" onclick="nudge('dur-mins',1)">▲</button>
+              <button class="dur-arrow" onclick="nudge('dur-mins',-1)">▼</button>
+            </div>
+          </div>
+          <div class="dur-block">
+            <span>Second</span>
+            <input type="number" id="dur-secs" value="0" min="0" max="59" oninput="updateSummary()" />
+            <div class="dur-arrows">
+              <button class="dur-arrow" onclick="nudge('dur-secs',1)">▲</button>
+              <button class="dur-arrow" onclick="nudge('dur-secs',-1)">▼</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="preset-btns">
+          <button class="preset" onclick="setDuration(0,0,10,0)">10 Min</button>
+          <button class="preset" onclick="setDuration(0,1,0,0)">1 Ghanta</button>
+          <button class="preset" onclick="setDuration(0,6,0,0)">6 Ghante</button>
+          <button class="preset" onclick="setDuration(1,0,0,0)">1 Din</button>
+          <button class="preset" onclick="setDuration(7,0,0,0)">7 Din</button>
+          <button class="preset" onclick="setDuration(30,0,0,0)">1 Mahina</button>
+          <button class="preset" onclick="setDuration(90,0,0,0)">3 Mahine</button>
+        </div>
+
+        <div class="dur-summary" id="dur-summary">Koi duration set nahi hua</div>
+      </div>
+
+      <div id="section-datetime" style="display:none;">
+        <div class="datetime-row">
+          <div>
+            <label style="margin-top:0">Date</label>
+            <input type="date" id="unlock-date" />
+          </div>
+          <div>
+            <label style="margin-top:0">Time</label>
+            <input type="time" id="unlock-time" value="23:59" />
+          </div>
+        </div>
+        <div class="preset-btns">
+          <button class="preset" onclick="setDatePreset(7)">7 Din</button>
+          <button class="preset" onclick="setDatePreset(15)">15 Din</button>
+          <button class="preset" onclick="setDatePreset(30)">1 Mahina</button>
+          <button class="preset" onclick="setDatePreset(90)">3 Mahine</button>
+        </div>
+      </div>
+
+      <button class="btn" id="lock-btn" onclick="lockSecret()">🔒 Lock Karo</button>
+      <div id="lock-result" class="result"></div>
+    </div>
+  </div>
+
+  <div id="panel-unlock" class="panel">
+    <div class="card">
+      <label>Tera Secret ID</label>
+      <input type="text" id="id-input" placeholder="Woh ID daalo jo lock karte waqt mili thi..." />
+      <button class="btn" id="unlock-btn" onclick="unlockSecret()">🔓 Unlock Karo</button>
+      <div id="unlock-result" class="result"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  let currentMode = 'duration';
+
+  // Init min date
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const dateInput = document.getElementById('unlock-date');
+  if(dateInput) dateInput.min = tomorrow.toISOString().split('T')[0];
+
+  // ── Tab switch ──────────────────────────────────────────────
+  function switchTab(tab) {
+    document.querySelectorAll('.tab').forEach((t, i) => t.classList.toggle('active', (i === 0) === (tab === 'lock')));
+    document.getElementById('panel-lock').classList.toggle('active', tab === 'lock');
+    document.getElementById('panel-unlock').classList.toggle('active', tab === 'unlock');
+  }
+
+  // ── Mode switch (duration vs datetime) ──────────────────────
+  function setMode(mode) {
+    currentMode = mode;
+    document.getElementById('mode-duration').classList.toggle('active', mode === 'duration');
+    document.getElementById('mode-datetime').classList.toggle('active', mode === 'datetime');
+    document.getElementById('section-duration').style.display = mode === 'duration' ? 'block' : 'none';
+    document.getElementById('section-datetime').style.display = mode === 'datetime' ? 'block' : 'none';
+  }
+
+  // ── Duration spinners ────────────────────────────────────────
+  function nudge(id, delta) {
+    const el = document.getElementById(id);
+    const val = parseInt(el.value) || 0;
+    const min = parseInt(el.min);
+    const max = parseInt(el.max);
+    el.value = Math.max(min, Math.min(max, val + delta));
+    updateSummary();
+  }
+
+  function setDuration(d, h, m, s) {
+    document.getElementById('dur-days').value  = d;
+    document.getElementById('dur-hours').value = h;
+    document.getElementById('dur-mins').value  = m;
+    document.getElementById('dur-secs').value  = s;
+    updateSummary();
+  }
+
+  function updateSummary() {
+    const d = parseInt(document.getElementById('dur-days').value)  || 0;
+    const h = parseInt(document.getElementById('dur-hours').value) || 0;
+    const m = parseInt(document.getElementById('dur-mins').value)  || 0;
+    const s = parseInt(document.getElementById('dur-secs').value)  || 0;
+    const total = d*86400 + h*3600 + m*60 + s;
+    const el = document.getElementById('dur-summary');
+
+    if (total <= 0) {
+      el.className = 'dur-summary';
+      el.textContent = 'Koi duration set nahi hua';
+      return;
+    }
+
+    const parts = [];
+    if (d > 0) parts.push(`${d} din`);
+    if (h > 0) parts.push(`${h} ghante`);
+    if (m > 0) parts.push(`${m} minute`);
+    if (s > 0) parts.push(`${s} second`);
+
+    const unlockAt = new Date(Date.now() + total * 1000);
+    el.className = 'dur-summary has-value';
+    el.textContent = `🔒 ${parts.join(', ')} — Unlock: ${unlockAt.toLocaleString('hi-IN')}`;
+  }
+
+  // ── Date preset ──────────────────────────────────────────────
+  function setDatePreset(days) {
+    const d = new Date();
+    d.setDate(d.getDate() + days);
+    document.getElementById('unlock-date').value = d.toISOString().split('T')[0];
+  }
+
+  // ── Get unlock timestamp based on mode ──────────────────────
+  function getUnlockTimestamp() {
+    if (currentMode === 'duration') {
+      const d = parseInt(document.getElementById('dur-days').value)  || 0;
+      const h = parseInt(document.getElementById('dur-hours').value) || 0;
+      const m = parseInt(document.getElementById('dur-mins').value)  || 0;
+      const s = parseInt(document.getElementById('dur-secs').value)  || 0;
+      const totalMs = (d*86400 + h*3600 + m*60 + s) * 1000;
+      if (totalMs <= 0) return null;
+      return Date.now() + totalMs;
+    } else {
+      const dateVal = document.getElementById('unlock-date').value;
+      const timeVal = document.getElementById('unlock-time').value || '23:59';
+      if (!dateVal) return null;
+      const ts = new Date(`${dateVal}T${timeVal}:00`).getTime();
+      if (ts <= Date.now()) return null;
+      return ts;
+    }
+  }
+
+  // ── Crypto helpers ───────────────────────────────────────────
+  function encryptData(text) {
+    const key = CryptoJS.lib.WordArray.random(16).toString();
+    const encrypted = CryptoJS.AES.encrypt(text, key).toString();
+    return { encrypted, key };
+  }
+
+  function decryptData(encrypted, key) {
+    return CryptoJS.AES.decrypt(encrypted, key).toString(CryptoJS.enc.Utf8);
+  }
+
+  // ── Toggle password visibility ───────────────────────────────
+  function toggleVisibility(id, btn) {
+    const el = document.getElementById(id);
+    el.type = el.type === 'password' ? 'text' : 'password';
+    btn.textContent = el.type === 'password' ? '👁' : '🙈';
+  }
+
+  // ── Lock ─────────────────────────────────────────────────────
+  async function lockSecret() {
+    const secret = document.getElementById('secret-input').value.trim();
+    const hint   = document.getElementById('hint-input').value.trim();
+    const btn    = document.getElementById('lock-btn');
+    const result = document.getElementById('lock-result');
+
+    if (!secret) return showResult(result, 'error', '❌ Galti', 'Password khaali nahi hona chahiye!');
+
+    const unlockTimestamp = getUnlockTimestamp();
+    if (!unlockTimestamp) {
+      if (currentMode === 'duration')
+        return showResult(result, 'error', '❌ Galti', 'Koi duration set nahi hua! Din, ghante, minute ya second mein kuch toh daalo.');
+      else
+        return showResult(result, 'error', '❌ Galti', 'Date aur time sahi se select karo!');
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="loading"></span> Lock ho raha hai...';
+
+    try {
+      const { encrypted, key } = encryptData(secret);
+      const combo = JSON.stringify({ e: encrypted, k: key });
+
+      // UPDATED FOR VERCEL (Changed from /.netlify/functions/lock to /api/lock)
+      const res = await fetch('/api/lock', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ encryptedPassword: combo, unlockTimestamp, hint: hint || "Game Password" })
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        const unlockDateStr = new Date(unlockTimestamp).toLocaleString('hi-IN', {
+          day: 'numeric', month: 'long', year: 'numeric',
+          hour: '2-digit', minute: '2-digit', hour12: true
+        });
+
+        result.className = 'result success';
+        result.innerHTML = `
+          <div class="result-title">✅ Lock Ho Gaya!</div>
+          <p style="margin-bottom:10px;font-size:15px;">Password <strong style="color:var(--gold)">${unlockDateStr}</strong> tak locked hai.</p>
+          <label style="margin-top:16px">📋 Teri Secret ID — SAVE KAR LE!</label>
+          <div class="id-box">
+            <span class="id-text">${data.id}</span>
+            <button class="copy-btn" onclick="copyID('${data.id}')">Copy</button>
+          </div>
+          <p style="margin-top:12px;font-size:13px;color:var(--text-dim);font-style:italic;">
+            ⚠️ Is ID ke bina password kabhi wapas nahi milega. Screenshot le lo!
+          </p>
+        `;
+        result.style.display = 'block';
+        document.getElementById('secret-input').value = '';
+      } else {
+        showResult(result, 'error', '❌ Error', data.error || 'Kuch gadbad ho gayi');
+      }
+    } catch (err) {
+      showResult(result, 'error', '❌ Network Error', 'Server se connect nahi hua. Internet check karo.');
+    }
+
+    btn.disabled = false;
+    btn.innerHTML = '🔒 Lock Karo';
+  }
+
+  // ── Unlock ───────────────────────────────────────────────────
+  async function unlockSecret() {
+    const id     = document.getElementById('id-input').value.trim();
+    const btn    = document.getElementById('unlock-btn');
+    const result = document.getElementById('unlock-result');
+
+    if (!id) return showResult(result, 'error', '❌ Galti', 'ID daalo pehle!');
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="loading"></span> Check ho raha hai...';
+
+    try {
+      // UPDATED FOR VERCEL (Changed from /.netlify/functions/unlock to /api/unlock)
+      const res = await fetch('/api/unlock', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id })
+      });
+
+      const data = await res.json();
+
+      if (data.locked) {
+        const { days, hours, minutes } = data.remaining;
+        result.className = 'result locked';
+        result.innerHTML = `
+          <div class="result-title">⏳ Abhi Time Nahi Hua</div>
+          ${data.hint ? `<p class="hint-text">Hint: "${data.hint}"</p>` : ''}
+          <div class="countdown">
+            <div class="count-block">
+              <div class="count-num">${String(days).padStart(2,'0')}</div>
+              <div class="count-label">Din</div>
+            </div>
+            <div class="count-sep">:</div>
+            <div class="count-block">
+              <div class="count-num">${String(hours).padStart(2,'0')}</div>
+              <div class="count-label">Ghante</div>
+            </div>
+            <div class="count-sep">:</div>
+            <div class="count-block">
+              <div class="count-num">${String(minutes).padStart(2,'0')}</div>
+              <div class="count-label">Minute</div>
+            </div>
+          </div>
+          <p style="margin-top:14px;font-size:14px;color:var(--text-dim);text-align:center;">
+            Ruk ja. Yeh time bhi guzar jaayega. 💪
+          </p>
+        `;
+        result.style.display = 'block';
+      } else if (data.success) {
+        const combo = JSON.parse(data.encryptedPassword);
+        const plainPassword = decryptData(combo.e, combo.k);
+
+        result.className = 'result success';
+        result.innerHTML = `
+          <div class="result-title">🎉 Unlock Ho Gaya!</div>
+          ${data.hint ? `<p class="hint-text" style="margin-bottom:8px;">Hint: "${data.hint}"</p>` : ''}
+          <div class="revealed-pass">${plainPassword}</div>
+          <button class="copy-btn" style="width:100%;margin-top:10px;padding:10px" onclick="copyText('${plainPassword}')">📋 Copy Karo</button>
+        `;
+        result.style.display = 'block';
+      } else {
+        showResult(result, 'error', '❌ Error', data.error || 'Kuch gadbad ho gayi');
+      }
+    } catch (err) {
+      showResult(result, 'error', '❌ Network Error', 'Server se connect nahi hua.');
+    }
+
+    btn.disabled = false;
+    btn.innerHTML = '🔓 Unlock Karo';
+  }
+
+  // ── Helpers ──────────────────────────────────────────────────
+  function showResult(el, type, title, msg) {
+    el.className = `result ${type}`;
+    el.innerHTML = `<div class="result-title">${title}</div><p>${msg}</p>`;
+    el.style.display = 'block';
+  }
+
+  function copyID(id) {
+    navigator.clipboard.writeText(id).then(() => {
+      event.target.textContent = '✅ Copied!';
+      setTimeout(() => event.target.textContent = 'Copy', 2000);
+    });
+  }
+
+  function copyText(text) {
+    navigator.clipboard.writeText(text).then(() => {
+      event.target.textContent = '✅ Copy Ho Gaya!';
+      setTimeout(() => event.target.textContent = '📋 Copy Karo', 2000);
+    });
+  }
+</script>
+</body>
+</html>

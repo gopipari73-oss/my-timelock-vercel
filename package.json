@@ -1,0 +1,15 @@
+{
+  "name": "timelock-app",
+  "version": "3.0.0",
+  "description": "Self-hosted timelock — apna password future mein bhejo",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@netlify/blobs": "7.3.0",
+    "@netlify/functions": "2.8.1"
+  },
+  "devDependencies": {
+    "netlify-cli": "17.38.0"
+  }
+}
