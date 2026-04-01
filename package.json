@@ -1,15 +1,15 @@
 {
-  "name": "timelock-app",
+  "name": "my-timelock-vercel",
   "version": "3.0.0",
-  "description": "Self-hosted timelock — apna password future mein bhejo",
+  "description": "Backup Timelock — apna password Vercel KV mein bhejo",
   "engines": {
     "node": ">=18.0.0"
   },
   "dependencies": {
-    "@netlify/blobs": "7.3.0",
-    "@netlify/functions": "2.8.1"
+    "@vercel/kv": "^1.0.1"
   },
-  "devDependencies": {
-    "netlify-cli": "17.38.0"
+  "scripts": {
+    "dev": "vercel dev",
+    "build": "next build"
   }
 }
